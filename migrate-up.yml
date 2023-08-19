@@ -1,0 +1,25 @@
+version: '3.9'
+
+services:
+    migrate-up:
+      env_file:
+          - .env
+      image: migrate/migrate
+      container_name: migrate-up
+      volumes:
+        - ${MIGRATIONS_HOST_PATH:-./migrations}:/migrations
+      command:
+         [
+          "-path",
+          "/migrations",
+          "-database",
+          "postgres://${DB_USER}:${DB_PASSWORD}@db:${DB_PORT}/${DB_NAME}?sslmode=disable",
+          "up"
+        ]
+      networks:
+        - postgres-net
+
+networks:
+  postgres-net:
+    external: true
+    name: postgres-net

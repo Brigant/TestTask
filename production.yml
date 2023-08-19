@@ -1,0 +1,71 @@
+version: '3.9'
+
+services:
+    db:
+      image: postgres:15.3-alpine3.18
+      container_name: db
+      environment:
+        POSTGRES_USER: ${DB_USER}
+        POSTGRES_PASSWORD: ${DB_PASSWORD}
+        POSTGRES_DB: ${DB_NAME}
+        PGDATA: /data/postgres
+        TZ: "Europe/Kiev"
+        PGTZ: "Europe/Kiev"
+      volumes:
+        - persistan_volume:/data/postgres
+      ports:
+        - ${DB_PORT}:${DB_PORT}
+      restart: unless-stopped
+      healthcheck:
+        test: pg_isready -U ${DB_USER:-db_user} -d ${DB_NAME:-petproject_db}
+        interval: 2s
+        timeout: 4s
+        retries: 5
+      networks:
+        - belihome-net
+
+    balihome-back:
+      env_file:
+        - .env
+      build: .
+      depends_on:
+        db:
+          condition: service_healthy
+      container_name: balihome-back
+      restart: unless-stopped
+      volumes:
+        - balihome_uploads:/opt/uploads
+      ports:
+        - ${APP_PORT}:${APP_PORT}
+      networks:
+        - belihome-net
+
+    migrate-up:
+      depends_on:
+        db:
+          condition: service_healthy
+      env_file:
+          - .env
+      image: migrate/migrate
+      container_name: migrate-up
+      volumes:
+        - ${MIGRATIONS_HOST_PATH:-./migrations}:/migrations
+      command:
+         [
+          "-path",
+          "/migrations",
+          "-database",
+          "postgres://${DB_USER}:${DB_PASSWORD}@db:${DB_PORT}/${DB_NAME}?sslmode=disable",
+          "up"
+        ]
+      networks:
+        - belihome-net
+
+volumes:
+  persistan_volume:
+  balihome_uploads:
+
+networks:
+  belihome-net:
+    driver: bridge
+    name: belihome-net
